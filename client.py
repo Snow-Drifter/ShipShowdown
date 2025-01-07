@@ -9,32 +9,41 @@ def start_client():
         client_socket.connect((HOST, PORT))
 
         while True:
-            try:
-                message = input("Enter your message (type 'exit' to quit): ")
-            except EOFError:
-                print("InputError")
-                continue
-            
-            if message == "":
-                print("Message Empty. Not Sent.")
-                continue
-
-            if message.lower() == 'exit':
-                print("Closing the connection...")
-                break
-            # Send the message to the server
-            client_socket.sendall(message.encode())
-
-            # Receive the response from the server
+            # Receive message from the server
             data = client_socket.recv(1024)
+            if data == b'':
+                print("Disconnected")
+                break
+            
+            needs_reply = handle_response(data.decode())
+            if needs_reply:
+                try:
+                    message = input("Input: ")
+                except EOFError:
+                    print("InputError")
+                    continue
+                
+                if message == "":
+                    print("Message Empty. Not Sent.")
+                    continue
 
-            handle_response(data.decode())
+                if message.lower() == 'exit':
+                    print("Closing the connection...")
+                    break
+                # Send the message to the server
+                client_socket.sendall(message.encode())
 
     print("Connection closed.")
 
 
-def handle_response(message):
+def handle_response(message) -> bool:
+    # returns True if it expects a response from the player
     match message.split(":"):
+        case ["notice", "turn_start"]:
+            print("Your turn.")
+            return True
+        case ["notice", "enemy_move", move]:
+            print(f"Enemy moved. {move}")
         case ["kicked"]:
             # handle server kicking player
             print("Server kicked you!")
@@ -51,7 +60,7 @@ def handle_response(message):
             print(f"Server: '{message}'.")
         case _:
             print("Received malformed response.")
-
+    return False
 
 try:
     start_client()
